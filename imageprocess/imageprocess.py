@@ -473,10 +473,10 @@ def importespa(f, *args, **kwargs):
         reproject_ITM(out_raster, out_itm, rastertype = 'ref', sceneid = sceneid)
     
     # Thermal data
-    if basename[2:3] != '8' and os.access('%s\\%s_toa_band6.dat'%(dirname,sceneid),os.F_OK):
-        btimg = '%s\\%s_toa_band6.dat'%(dirname, sceneid)
-    elif basename[2:3] != '8' and os.access('%s\\%s_toa_band6.tif'%(dirname,sceneid),os.F_OK):
-        btimg = '%s\\%s_toa_band6.tif'%(dirname, sceneid)
+    if basename[2:3] != '8' and os.access(os.path.join(outputdir,'%s_toa_band6.dat'%(sceneid)),os.F_OK):
+        btimg = os.path.join(outputdir,'%s_toa_band6.dat'%(sceneid))
+    elif basename[2:3] != '8' and os.access(os.path.join(outputdir,'%s_toa_band6.tif'%(sceneid)),os.F_OK):
+        btimg = os.path.join(outputdir,'%s_toa_band6.tif'%(sceneid))
     if btimg:
         BT_ITM = os.path.join(btdir,'%s_BT_ITM.dat'%sceneid)
         if overwrite or not os.path.exists(BT_ITM):
@@ -505,12 +505,12 @@ def importespa(f, *args, **kwargs):
             shutil.move(f,archdir)
     
     print('Cleaning up files in directory.')
-    filelist = glob.glob(os.path.join(dirname, '*'))
+    filelist = glob.glob(os.path.join(outputdir, '*'))
     try:
         for fname in filelist:
             if os.access(fname,os.F_OK):
                 os.remove(fname)
-        os.rmdir(dirname)
+        os.rmdir(outputdir)
     except Exception as e:
         print('An error has occurred cleaning up files for scene %s:'%sceneid)
         print(e)
