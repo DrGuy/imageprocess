@@ -386,6 +386,7 @@ def importespa(f, *args, **kwargs):
     # evidir = kwargs.get('evidir', evidir)
     # archdir = kwargs.get('archdir', archdir)
     overwrite = kwargs.get('overwrite', False)
+    remove = kwargs.get('remove', False)
     btimg = None
     basename = os.path.basename(f)
     dirname = os.path.dirname(f)
@@ -503,18 +504,18 @@ def importespa(f, *args, **kwargs):
         print('Moving %s to archive: %s'%(basename, archdir))
         if not os.access(os.path.join(archdir,os.path.basename(f)),os.F_OK):
             shutil.move(f,archdir)
-    
-    print('Cleaning up files in directory.')
-    filelist = glob.glob(os.path.join(outputdir, '*'))
-    try:
-        for fname in filelist:
-            if os.access(fname,os.F_OK):
-                os.remove(fname)
-        os.rmdir(outputdir)
-    except Exception as e:
-        print('An error has occurred cleaning up files for scene %s:'%sceneid)
-        print(e)
-        logerror(f, e)
+    if remove:
+        print('Cleaning up files in directory.')
+        filelist = glob.glob(os.path.join(outputdir, '*'))
+        try:
+            for fname in filelist:
+                if os.access(fname,os.F_OK):
+                    os.remove(fname)
+            os.rmdir(outputdir)
+        except Exception as e:
+            print('An error has occurred cleaning up files for scene %s:'%sceneid)
+            print(e)
+            logerror(f, e)
     
     print('Processing complete for scene %s.'%sceneid)
         
