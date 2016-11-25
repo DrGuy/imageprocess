@@ -506,7 +506,7 @@ def importespa(f, *args, **kwargs):
             shutil.move(f,archdir)
     if remove:
         print('Cleaning up files in directory.')
-        filelist = glob.glob(os.path.join(outputdir, '*'))
+        filelist = glob.glob(os.path.join(outputdir, '{}*.*'.format(sceneid)))
         try:
             for fname in filelist:
                 if os.access(fname,os.F_OK):
