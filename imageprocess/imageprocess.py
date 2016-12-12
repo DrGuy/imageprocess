@@ -474,7 +474,7 @@ def importespa(f, *args, **kwargs):
             # if overwrite and os.path.exists(out_raster):
             #     os.remove(out_raster)  
             for band in bands:
-                srlist.append(os.path.join(outputdir, '{}_sr_band{}.{}'.format(sceneid, band, ext))
+                srlist.append(os.path.join(outputdir, '{}_sr_band{}.{}'.format(sceneid, band, ext)))
                 # if os.access(os.path.join(outputdir,'%s_sr_band%s.tif'%(sceneid, band)), os.F_OK):
                 #     srlist.append(xml[0].replace('.xml', '_sr_band%s.tif'%band))
                 # else:
