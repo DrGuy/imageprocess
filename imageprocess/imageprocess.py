@@ -51,8 +51,6 @@ else:
     sys.path.append('/usr/local/bin')
     
 
-
-
 def logerror(f, message, *args, **kwargs):
     errorfile = kwargs.get('errorfile',defaulterrorfile) 
     dirname, basename = os.path.split(errorfile)
@@ -417,54 +415,70 @@ def importespa(f, *args, **kwargs):
         if '.img' in fname:
             shutil.move(fname, fname.replace('.img', '.dat'))
             filelist[i] = fname.replace('.img', '.dat')
+    if any(x.endswith('.tif') for x in filelist):
+        ext = 'tif'
+    else:
+        ext = 'dat'
     xml = glob.glob(os.path.join(outputdir, '*.xml'))
     if len(xml)>0:
         sceneid = os.path.basename(xml[0]).replace('.xml', '')
-    elif basename[:1] == 'L' and len(basename)>21:
+    elif basename[:1] == 'L' and len(basename) > 21:
         sceneid = basename[:21]
     else: 
         print('No XML file found, returning.')
         logerror(f, 'No XML file found.')
         return
     
+    if overwrite:
+        print('Deleting existing output files.')
+        for d in [fmaskdir, srdir, btdir, ndvidir, evidir]:
+            dellist = glob.glob(os.path.join(d,'{}*.*'.format(sceneid)))
+            if len(dellist) > 0:
+                for entry in dellist:
+                    os.remove(entry)
+    
     # Fmask file
-    in_raster = os.path.basename(xml[0]).replace('.xml', '_cfmask.tif')
+    in_raster = os.path.join(outputdir, '{}_cfmask.{}'.format(sceneid, ext))
     if not os.access(in_raster, os.F_OK):
-        if os.access(in_raster.replace('.tif', '.img'),os.F_OK):
-            in_raster = in_raster.replace('.tif', '.img')
-        else:
-            in_raster = in_raster.replace('_cfmask.tif', '_cfmask.dat')
-    out_raster = os.path.join(fmaskdir, os.path.basename(in_raster))
-    if out_raster.endswith('.tif'):
-        out_raster = out_raster.replace('.tif', '.dat')
-    elif out_raster.endswith('.img'):
-        out_raster = out_raster.replace('.img', '.dat')
-    if overwrite or not os.path.exists(out_raster):
+        print('Error, CFmask file is missing. Returning.')
+        logerror(f, 'CFmask file missing.')
+        return
+        # if os.access(in_raster.replace('.tif', '.img'),os.F_OK):
+        #     in_raster = in_raster.replace('.tif', '.img')
+        # else:
+        #     in_raster = in_raster.replace('_cfmask.tif', '_cfmask.dat')
+    out_raster = os.path.join(fmaskdir, '{}_cfmask.dat'.format(sceneid))
+    # if out_raster.endswith('.tif'):
+    #     out_raster = out_raster.replace('.tif', '.dat')
+    # elif out_raster.endswith('.img'):
+    #     out_raster = out_raster.replace('.img', '.dat')
+    if not os.path.exists(out_raster): # overwrite or 
         print('Reprojecting %s Fmask to ITM.'%sceneid)
-        if overwrite and os.path.exists(out_raster):
-            flist =  glob.glob(out_raster.replace('.dat', '.*'))
-            for fl in flist:
-                os.remove(fl)
+        # if overwrite and os.path.exists(out_raster):
+        #     flist =  glob.glob(out_raster.replace('.dat', '.*'))
+        #     for fl in flist:
+        #         os.remove(fl)
         reproject_ITM(in_raster, out_raster, sceneid = sceneid, rastertype = 'Fmask')
     
     # Surface reflectance data
-    out_itm = os.path.join(srdir,'%s_ref_ITM.dat'%sceneid)
+    out_itm = os.path.join(srdir,'{}_ref_ITM.dat'.format(sceneid))
     if overwrite or not os.path.exists(out_itm):
-        if overwrite:
-            flist =  glob.glob(out_itm.replace('.dat', '.*'))
-            for fl in flist:
-                os.remove(fl)
+        # if overwrite:
+        #     flist =  glob.glob(out_itm.replace('.dat', '.*'))
+        #     for fl in flist:
+        #         os.remove(fl)
         print('Compositing surface reflectance bands to single file.')
         srlist = []
         out_raster = xml[0].replace('.xml', '.vrt')  
-        if overwrite or not os.path.exists(out_raster):
-            if overwrite and os.path.exists(out_raster):
-                os.remove(out_raster)  
+        if not os.path.exists(out_raster): # overwrite or 
+            # if overwrite and os.path.exists(out_raster):
+            #     os.remove(out_raster)  
             for band in bands:
-                if os.access(os.path.join(outputdir,'%s_sr_band%s.tif'%(sceneid, band)), os.F_OK):
-                    srlist.append(xml[0].replace('.xml', '_sr_band%s.tif'%band))
-                else:
-                    srlist.append(xml[0].replace('.xml', '_sr_band%s.dat'%band))
+                srlist.append(os.path.join(outputdir, '{}_sr_band{}.{}'.format(sceneid, band, ext))
+                # if os.access(os.path.join(outputdir,'%s_sr_band%s.tif'%(sceneid, band)), os.F_OK):
+                #     srlist.append(xml[0].replace('.xml', '_sr_band%s.tif'%band))
+                # else:
+                #     srlist.append(xml[0].replace('.xml', '_sr_band%s.dat'%band))
             mergelist = ['gdalbuildvrt', '-separate', out_raster]
             for s in srlist:
                 mergelist.append(s)
@@ -474,23 +488,37 @@ def importespa(f, *args, **kwargs):
         reproject_ITM(out_raster, out_itm, rastertype = 'ref', sceneid = sceneid)
     
     # Thermal data
-    if basename[2:3] != '8' and os.access(os.path.join(outputdir,'%s_toa_band6.dat'%(sceneid)),os.F_OK):
-        btimg = os.path.join(outputdir,'%s_toa_band6.dat'%(sceneid))
-    elif basename[2:3] != '8' and os.access(os.path.join(outputdir,'%s_toa_band6.tif'%(sceneid)),os.F_OK):
-        btimg = os.path.join(outputdir,'%s_toa_band6.tif'%(sceneid))
+    if basename[2:3] != '8':
+        outbtdir = btdir
+        rastertype = 'Landsat Band6'
+        btimg = os.path.join(outputdir,'{}_toa_band6.dat'.format(sceneid))
+    else:
+        outbtdir = os.path.join(btdir, 'Landsat8')
+        rastertype = 'Landsat TIR'
+        btimg = os.path.join(tempdir,'{}_BT.vrt'.format(sceneid))
+        print('Stacking Landsat 8 TIR bands for scene {}.'.format(sceneID))
+        mergelist = ['gdalbuildvrt', '-separate', in_raster]
+        for band in [10, 11]:
+            mergelist.append(os.path.join(outputdir,'{}_toa_band{}.{}'.format(sceneid, band, ext)))
+        p = Popen(mergelist)
+        print(p.communicate())
+    # if basename[2:3] != '8' and os.access(os.path.join(outputdir,'%s_toa_band6.dat'%(sceneid)),os.F_OK):
+    #     
+    # elif basename[2:3] != '8' and os.access(os.path.join(outputdir,'%s_toa_band6.tif'%(sceneid)),os.F_OK):
+    #     btimg = os.path.join(outputdir,'%s_toa_band6.tif'%(sceneid))
     if btimg:
         BT_ITM = os.path.join(btdir,'%s_BT_ITM.dat'%sceneid)
-        if overwrite or not os.path.exists(BT_ITM):
-            if overwrite and os.path.exists(BT_ITM):
-                flist =  glob.glob(BT_ITM.replace('.dat', '.*'))
-                for fl in flist:
-                    os.remove(fl)
+        if not os.path.exists(BT_ITM): # overwrite or 
+            # if overwrite and os.path.exists(BT_ITM):
+            #     flist =  glob.glob(BT_ITM.replace('.dat', '.*'))
+            #     for fl in flist:
+            #         os.remove(fl)
         print('Reprojecting %s brightness temperature data to Irish Transverse Mercator.'%sceneid)
-        reproject_ITM(btimg, BT_ITM, rastertype = 'BT', sceneid = sceneid)
+        reproject_ITM(btimg, BT_ITM, rastertype = rastertype, sceneid = sceneid)
         
     
     # Calculate EVI and NDVI
-    if overwrite or not os.path.exists(os.path.join(evidir, '%s_EVI.dat'%sceneid)):
+    if not os.path.exists(os.path.join(evidir, '%s_EVI.dat'%sceneid)): # overwrite or 
         try:
             calcvis(out_itm)
         except Exception as e:
@@ -519,6 +547,12 @@ def importespa(f, *args, **kwargs):
     
     print('Processing complete for scene %s.'%sceneid)
         
+
+def ESPAreprocess(SceneID, listfile):
+    print('Adding scene {} for ESPA reprocessing to: {}'.format(SceneID, listfile))
+    with open(listfile, 'a') as output:
+        output.write('{}\n'.format(SceneID))
+
 
 ## File compression/ decompression
 

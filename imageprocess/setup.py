@@ -32,7 +32,7 @@ setup(
     name='imageprocess',
 
     # Version number:
-    version='1.0.2',
+    version='1.0.3',
 
     # Application author details:
     author='Guy Serbin',
