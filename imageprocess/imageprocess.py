@@ -378,17 +378,15 @@ def NDindex(A, B, *args, **kwargs):
     return data.astype(numpy.int16)
 
 def importespa(f, *args, **kwargs):
-    # srdir = kwargs.get('srdir', srdir)
-    # btdir = kwargs.get('btdir', btdir)
-    # fmaskdir = kwargs.get('fmaskdir', fmaskdir)
-    # evidir = kwargs.get('evidir', evidir)
-    # archdir = kwargs.get('archdir', archdir)
     overwrite = kwargs.get('overwrite', False)
+    tempdir = kwargs.get('tempdir', None)
     remove = kwargs.get('remove', False)
     btimg = None
     basename = os.path.basename(f)
     dirname = os.path.dirname(f)
     landsat = basename[2:3]
+    outputdir = None 
+    
     if landsat == '8': 
         bands=['1', '2', '3', '4', '5', '6', '7']
     elif basename[1:2] == 'M':
@@ -397,11 +395,19 @@ def importespa(f, *args, **kwargs):
     else:
         bands=['1', '2', '3', '4', '5', '7']
     if f.endswith('.tar.gz'):
-        if '-' in basename:
-            i = f.rfind('-')
-        else:
-            i = f.find('.tar.gz')
-        outputdir = f[:i]
+        if tempdir:
+            if not os.path.isdir(tempdir):
+                try: 
+                    os.mkdir(tempdir)
+                    outputdir = tempdir
+                except:
+                    outputdir = None
+        if not outputdir:
+            if '-' in basename:
+                i = f.rfind('-')
+            else:
+                i = f.find('.tar.gz')
+            outputdir = f[:i]
         filelist = untarfile(f, outputdir)
     else:
         filelist = glob.glob(os.path.join(dirname, '*'))
@@ -411,16 +417,17 @@ def importespa(f, *args, **kwargs):
         if len(filelist) == 0:
             logerror(f, 'No files found.')
         return
-    for (i, fname) in enumerate(filelist):
-        if '.img' in fname:
-            shutil.move(fname, fname.replace('.img', '.dat'))
-            filelist[i] = fname.replace('.img', '.dat')
+    # for (i, fname) in enumerate(filelist):
+    #     if '.img' in fname:
+    #         shutil.move(fname, fname.replace('.img', '.dat'))
+    #         filelist[i] = fname.replace('.img', '.dat')
     if any(x.endswith('.tif') for x in filelist):
         ext = 'tif'
     else:
-        ext = 'dat'
+        ext = 'img'
+    oext = 'dat'
     xml = glob.glob(os.path.join(outputdir, '*.xml'))
-    if len(xml)>0:
+    if len(xml) > 0:
         sceneid = os.path.basename(xml[0]).replace('.xml', '')
     elif basename[:1] == 'L' and len(basename) > 21:
         sceneid = basename[:21]
@@ -443,45 +450,27 @@ def importespa(f, *args, **kwargs):
         print('Error, CFmask file is missing. Returning.')
         logerror(f, 'CFmask file missing.')
         return
-        # if os.access(in_raster.replace('.tif', '.img'),os.F_OK):
-        #     in_raster = in_raster.replace('.tif', '.img')
-        # else:
-        #     in_raster = in_raster.replace('_cfmask.tif', '_cfmask.dat')
+        
     out_raster = os.path.join(fmaskdir, '{}_cfmask.dat'.format(sceneid))
-    # if out_raster.endswith('.tif'):
-    #     out_raster = out_raster.replace('.tif', '.dat')
-    # elif out_raster.endswith('.img'):
-    #     out_raster = out_raster.replace('.img', '.dat')
-    if not os.path.exists(out_raster): # overwrite or 
-        print('Reprojecting %s Fmask to ITM.'%sceneid)
-        # if overwrite and os.path.exists(out_raster):
-        #     flist =  glob.glob(out_raster.replace('.dat', '.*'))
-        #     for fl in flist:
-        #         os.remove(fl)
+    if not os.path.exists(out_raster):  
+        print('Reprojecting {} Fmask to ITM.'.format(sceneid))
         reproject_ITM(in_raster, out_raster, sceneid = sceneid, rastertype = 'Fmask')
     
     # Surface reflectance data
     out_itm = os.path.join(srdir,'{}_ref_ITM.dat'.format(sceneid))
-    if overwrite or not os.path.exists(out_itm):
-        # if overwrite:
-        #     flist =  glob.glob(out_itm.replace('.dat', '.*'))
-        #     for fl in flist:
-        #         os.remove(fl)
+    if not os.path.exists(out_itm): 
         print('Compositing surface reflectance bands to single file.')
         srlist = []
-        out_raster = xml[0].replace('.xml', '.vrt')  
-        if not os.path.exists(out_raster): # overwrite or 
-            # if overwrite and os.path.exists(out_raster):
-            #     os.remove(out_raster)  
-            for band in bands:
-                srlist.append(os.path.join(outputdir, '{}_sr_band{}.{}'.format(sceneid, band, ext)))
-                # if os.access(os.path.join(outputdir,'%s_sr_band%s.tif'%(sceneid, band)), os.F_OK):
-                #     srlist.append(xml[0].replace('.xml', '_sr_band%s.tif'%band))
-                # else:
-                #     srlist.append(xml[0].replace('.xml', '_sr_band%s.dat'%band))
+        out_raster = os.path.join(outputdir, '{}.vrt'.format(sceneid))  
+        if not os.path.exists(out_raster): 
             mergelist = ['gdalbuildvrt', '-separate', out_raster]
-            for s in srlist:
-                mergelist.append(s)
+            for band in bands:
+                fname = os.path.join(outputdir, '{}_sr_band{}.{}'.format(sceneid, band, ext))
+                if not os.path.isfile(fname):
+                    print('Error, {} is missing. Returning.'.format(os.path.basename(fname)))
+                    logerror(f, '{} band {} file missing.'.format(sceneid, band))
+                    return
+                mergelist.append(fname)
             p = Popen(mergelist)
             print(p.communicate())
         print('Reprojecting %s reflectance data to Irish Transverse Mercator.'%sceneid)
@@ -491,45 +480,37 @@ def importespa(f, *args, **kwargs):
     if basename[2:3] != '8':
         outbtdir = btdir
         rastertype = 'Landsat Band6'
-        btimg = os.path.join(outputdir,'{}_toa_band6.dat'.format(sceneid))
+        btimg = os.path.join(outputdir,'{}_toa_band6.{}'.format(sceneid, ext))
     else:
         outbtdir = os.path.join(btdir, 'Landsat8')
         rastertype = 'Landsat TIR'
-        btimg = os.path.join(tempdir,'{}_BT.vrt'.format(sceneid))
+        btimg = os.path.join(outputdir,'{}_BT.vrt'.format(sceneid))
         print('Stacking Landsat 8 TIR bands for scene {}.'.format(sceneID))
         mergelist = ['gdalbuildvrt', '-separate', in_raster]
         for band in [10, 11]:
             mergelist.append(os.path.join(outputdir,'{}_toa_band{}.{}'.format(sceneid, band, ext)))
         p = Popen(mergelist)
         print(p.communicate())
-    # if basename[2:3] != '8' and os.access(os.path.join(outputdir,'%s_toa_band6.dat'%(sceneid)),os.F_OK):
-    #     
-    # elif basename[2:3] != '8' and os.access(os.path.join(outputdir,'%s_toa_band6.tif'%(sceneid)),os.F_OK):
-    #     btimg = os.path.join(outputdir,'%s_toa_band6.tif'%(sceneid))
     if btimg:
-        BT_ITM = os.path.join(btdir,'%s_BT_ITM.dat'%sceneid)
-        if not os.path.exists(BT_ITM): # overwrite or 
-            # if overwrite and os.path.exists(BT_ITM):
-            #     flist =  glob.glob(BT_ITM.replace('.dat', '.*'))
-            #     for fl in flist:
-            #         os.remove(fl)
-        print('Reprojecting %s brightness temperature data to Irish Transverse Mercator.'%sceneid)
-        reproject_ITM(btimg, BT_ITM, rastertype = rastertype, sceneid = sceneid)
+        BT_ITM = os.path.join(btdir,'{}_BT_ITM.dat'.format(sceneid))
+        if not os.path.exists(BT_ITM): 
+            print('Reprojecting {} brightness temperature data to Irish Transverse Mercator.'.format(sceneid))
+            reproject_ITM(btimg, BT_ITM, rastertype = rastertype, sceneid = sceneid)
         
     
     # Calculate EVI and NDVI
-    if not os.path.exists(os.path.join(evidir, '%s_EVI.dat'%sceneid)): # overwrite or 
+    if not os.path.exists(os.path.join(evidir, '{}_EVI.dat'.format(sceneid))): 
         try:
             calcvis(out_itm)
         except Exception as e:
-            print('An error has occurred calculating VIs for scene %s:'%sceneid)
+            print('An error has occurred calculating VIs for scene {}:'.format(sceneid))
             print(e)
             logerror(out_itm, e)
     
     # Clean up files.
     
     if basename.endswith('.tar.gz'):
-        print('Moving %s to archive: %s'%(basename, archdir))
+        print('Moving {} to archive: {}'.format(basename, archdir))
         if not os.access(os.path.join(archdir,os.path.basename(f)),os.F_OK):
             shutil.move(f,archdir)
     if remove:
@@ -541,11 +522,11 @@ def importespa(f, *args, **kwargs):
                     os.remove(fname)
             os.rmdir(outputdir)
         except Exception as e:
-            print('An error has occurred cleaning up files for scene %s:'%sceneid)
+            print('An error has occurred cleaning up files for scene {}:'.format(sceneid))
             print(e)
             logerror(f, e)
     
-    print('Processing complete for scene %s.'%sceneid)
+    print('Processing complete for scene {}.'.format(sceneid))
         
 
 def ESPAreprocess(SceneID, listfile):
