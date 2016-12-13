@@ -485,7 +485,7 @@ def importespa(f, *args, **kwargs):
         outbtdir = os.path.join(btdir, 'Landsat8')
         rastertype = 'Landsat TIR'
         btimg = os.path.join(outputdir,'{}_BT.vrt'.format(sceneid))
-        print('Stacking Landsat 8 TIR bands for scene {}.'.format(sceneID))
+        print('Stacking Landsat 8 TIR bands for scene {}.'.format(sceneid))
         mergelist = ['gdalbuildvrt', '-separate', in_raster]
         for band in [10, 11]:
             mergelist.append(os.path.join(outputdir,'{}_toa_band{}.{}'.format(sceneid, band, ext)))
