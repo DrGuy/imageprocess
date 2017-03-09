@@ -2,3 +2,4 @@ include imageprocess.py
 include ENVIfile.py
 include modistools.py
 include config/imageprocess.ini
+include config/__init__.py

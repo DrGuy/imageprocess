@@ -261,7 +261,7 @@ class ENVIfile(object):
         self.header.fwhm = kwargs.get('fwhm', None)
         self.header.wavelengthunits = kwargs.get('wavelengthunits', None)
         self.header.solarirradiance = kwargs.get('solarirradiance', None)
-        
+        self.header.parentrasters = kwargs.get('parentrasters', None)
         
         self.mask = None # Functionality for this will be added in on a later date
         
@@ -408,8 +408,10 @@ class ENVIfile(object):
                 self.header.acquisitiontime = 'acquisition time = %d-07-01\n'%self.year
         else: 
             self.header.acquisitiontime = None
+        if not self.header.parentrasters: 
+            if 'parentrasters' in self.header.dict.keys():
+                self.header.parentrasters = self.header.dict['parentrasters']
         
-        d = None
         return 
         
     def Save(self):
@@ -531,6 +533,8 @@ class ENVIfile(object):
                     self.header.headerstr += 'sensor type = %s\n'%self.header.sensortype
                 if self.header.acquisitiontime:
                     self.header.headerstr += self.header.acquisitiontime
+                if self.header.parentrasters:   
+                    self.header.headerstr += self.header.parentrasters
                 return 
             
         class colorfile:

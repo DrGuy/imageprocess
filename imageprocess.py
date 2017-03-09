@@ -299,6 +299,7 @@ def calcvis(refitm, *args, **kwargs): # This should calculate a masked NDVI.
     sceneid = basename[:21]
     acqtime = envihdracqtime(refitm.replace('.dat','.hdr'))
     fmaskfile = os.path.join(fmaskdir,'%s_cfmask.dat'%sceneid)
+    parentrasters = [os.path.basename(refitm)]
     usefmask = True
     if not os.path.exists(fmaskfile):
         fmaskfile = fmaskfile.replace('_cfmask.dat','_fmask.dat')
@@ -306,6 +307,8 @@ def calcvis(refitm, *args, **kwargs): # This should calculate a masked NDVI.
             print('ERROR: Fmask file does not exist, returning.')
             logerror(fmaskfile, 'File not found.')
             usefmask = False
+        else:
+            parentrasters.append(os.path.basename(fmaskfile))
         
     print('Calculating NDVI for scene %s.'%sceneid)
     refobj = gdal.Open(refitm)
@@ -333,12 +336,12 @@ def calcvis(refitm, *args, **kwargs): # This should calculate a masked NDVI.
     
     # NDVI calculation 
     NDVI = NDindex(NIR, red, fmask = fmask)
-    ENVIfile(NDVI, 'NDVI', outdir = ndvidir, geoTrans = geoTrans, SceneID = sceneid, acqtime = acqtime).Save()
+    ENVIfile(NDVI, 'NDVI', outdir = ndvidir, geoTrans = geoTrans, SceneID = sceneid, acqtime = acqtime, parentrasters =  parentrasters).Save()
     NDVI = None
     
     # EVI calculation
     evi = EVI(blue, red, NIR, fmask = fmask)
-    ENVIfile(evi, 'EVI', outdir = evidir, geoTrans = geoTrans, SceneID = sceneid, acqtime = acqtime).Save()
+    ENVIfile(evi, 'EVI', outdir = evidir, geoTrans = geoTrans, SceneID = sceneid, acqtime = acqtime, parentrasters =  parentrasters).Save()
     evi = None
     
     NIR = None
